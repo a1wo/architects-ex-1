@@ -197,11 +197,12 @@ class GPT(nn.Module):
             print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
             print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
         # Create AdamW optimizer and use the fused version if it is available
-        fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
+        used_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
         use_fused = fused_available and device_type == "cuda"
         if master_process:
             print(f"using fused AdamW: {use_fused}")
         optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8, fused=use_fused)
+        
         return optimizer
 
 # -----------------------------------------------------------------------------
@@ -354,8 +355,17 @@ for step in range(max_steps):
 
     
     # TODO: Implement the training step
-    
-    
+    x, y = train_loader.next_batch()
+    x = x.to(device)
+    y = y.to(device)
+
+    logits, loss_accum = model.forward(x, targets=y)
+    lr = optimizer.param_groups[0]['lr']
+    loss_accum.backward()
+    clipped_grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    optimizer.step()
+    optimizer.zero_grad(set_to_none=True)
+
     if device_type == "cuda":
         torch.cuda.synchronize() # wait for the GPU to finish work
 
