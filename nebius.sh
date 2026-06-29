@@ -8,7 +8,7 @@ fi
 
 git add .
 git commit -m "$GIT_MSG"
-git push origin main
+git push 
 
 COMMIT_SHA=$(git rev-parse --short HEAD)
 
